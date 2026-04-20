@@ -1,0 +1,25 @@
+# Build artifacts
+*.o
+*.a
+*.so
+test_basic
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build directories
+build/
+dist/
+
+# Falcon submodule is tracked by git, but its build artifacts should be ignored
+external/falcon/*.o
+external/falcon/test_falcon
+external/falcon/speed
