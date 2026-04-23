@@ -14,17 +14,14 @@ FALCON_OBJS = external/falcon/falcon.o external/falcon/keygen.o external/falcon/
               external/falcon/vrfy.o external/falcon/deterministic.o
 
 # Binary name
-BIN = bip32_falcon
 TEST_BIN = test_bip32
 
 .PHONY: all clean test
 
-all: $(BIN)
+all: $(TEST_BIN)
 
 test: $(TEST_BIN)
-
-$(BIN): $(SRCS)
-	$(CC) $(CFLAGS) -o $@ $(SRCS) $(FALCON_OBJS) $(LDFLAGS)
+	./$(TEST_BIN)
 
 $(TEST_BIN): $(TEST_SRCS) src/bip32.c $(FALCON_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(TEST_SRCS) src/bip32.c $(FALCON_OBJS) $(LDFLAGS)

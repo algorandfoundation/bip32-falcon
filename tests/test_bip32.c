@@ -36,7 +36,7 @@ int test_bip32_master_key(void)
     // output the node
     printf("Master node: \n");
     printf("  Seed material: \n");
-    for (size_t i = 0; i < 32; i++) { 
+    for (size_t i = 0; i < 64; i++) {
         printf("%02x", node.seed_material[i]);
     }
     printf("\n");
@@ -73,7 +73,7 @@ int test_bip32_derive(void)
     printf("Child depth: %u\n", child_node.depth);
     printf("Child number: %u\n", child_node.child_number);
     printf("Child seed material: \n");
-    for (size_t i = 0; i < 32; i++) { 
+    for (size_t i = 0; i < 64; i++) {
         printf("%02x", child_node.seed_material[i]);
     }
     printf("\n");
@@ -109,7 +109,7 @@ int test_bip32_derive_and_get_falcon_keys(void)
 
   // generate falcon-1024 keys from the child node's seed material
   shake256_context key_rng;
-  shake256_init_prng_from_seed(&key_rng, child_node.seed_material, 32);
+  shake256_init_prng_from_seed(&key_rng, child_node.seed_material, 64);
 
   uint8_t privkey[FALCON_PRIVKEY_SIZE(10)];
   uint8_t pubkey[FALCON_PUBKEY_SIZE(10)];
@@ -161,30 +161,24 @@ int bip44_test(void)
   printf("Depth: %u\n", derived_node.depth);
   printf("Child number: %u\n", derived_node.child_number);
   printf("Seed material: \n");
-  for (size_t i = 0; i < 32; i++) { 
+  for (size_t i = 0; i < 64; i++) {
     printf("%02x", derived_node.seed_material[i]);
   }
   printf("\n");
 
   // calculate falcon keys from the derived node
   shake256_context key_rng;
-  shake256_init_prng_from_seed(&key_rng, derived_node.seed_material, 32);
+  shake256_init_prng_from_seed(&key_rng, derived_node.seed_material, 64);
 
   uint8_t pubkey[FALCON_DET1024_PUBKEY_SIZE];
 	uint8_t privkey[FALCON_DET1024_PRIVKEY_SIZE];
-	uint8_t signature[FALCON_DET1024_SIG_COMPRESSED_MAXSIZE];
+        uint8_t signature[FALCON_DET1024_SIG_COMPRESSED_MAXSIZE];
 	size_t sig_len;
-	uint8_t expected_sig[FALCON_DET1024_SIG_COMPRESSED_MAXSIZE];
 
-  const char *msg = "Hello w0RlD";
-  size_t data_len = sizeof(msg) - 1;
+        const char *msg = "Hello w0RlD";
+  size_t data_len = strlen(msg);
 	uint8_t data[data_len];
-
-	shake256_context msg_rng; // message RNG but deterministic? 
-	char msg_seed[8+1]; // msg seed?
-	sprintf(msg_seed, msg, data_len);
-	shake256_init_prng_from_seed(&msg_rng, msg_seed, 8);
-	shake256_extract(&msg_rng, data, data_len);
+	memcpy(data, msg, data_len);
 
   // fill with zeroes
 	memset(privkey, 0, FALCON_DET1024_PRIVKEY_SIZE);

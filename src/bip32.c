@@ -7,10 +7,9 @@
 
 int bip32_master(bip32_node_t *out, const uint8_t *entropy, size_t seed_len)
 {
-    //sha512 
-    uint8_t master_root_seed[64];
-    unsigned int master_root_seed_len = 0;
-    
+    uint8_t master_seed[64];
+    unsigned int master_seed_len = 0;
+
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (ctx == NULL) {
         return -1;
@@ -18,22 +17,20 @@ int bip32_master(bip32_node_t *out, const uint8_t *entropy, size_t seed_len)
 
     EVP_DigestInit_ex(ctx, EVP_sha512(), NULL);
     EVP_DigestUpdate(ctx, entropy, seed_len);
-    EVP_DigestFinal_ex(ctx, master_root_seed, &master_root_seed_len);
+    EVP_DigestFinal_ex(ctx, master_seed, &master_seed_len);
     EVP_MD_CTX_free(ctx);
 
     printf("Master seed, SHA512(entropy): ");
-    for (size_t i = 0; i < master_root_seed_len; i++) {
-        printf("%02x", master_root_seed[i]);
+    for (size_t i = 0; i < master_seed_len; i++) {
+        printf("%02x", master_seed[i]);
     }
     printf("\n");
 
     out->depth = 0;
     out->child_number = 0;
-    memcpy(out->seed_material, master_root_seed, 32);
-    //chain code is the second half of the master key
-    memcpy(out->chain_code, master_root_seed + 32, 32);
+    memcpy(out->seed_material, master_seed, 64);
 
-    return master_root_seed_len;
+    return (int)master_seed_len;
 }
 
 /** Unlike regular BIP32 for ECC, for FALCON we don't distinguish between 
@@ -42,40 +39,42 @@ int bip32_master(bip32_node_t *out, const uint8_t *entropy, size_t seed_len)
  * with Lattice-based signatures. 
  *
  * - We assume derivations always require private key material, so we don't have a separate "public" derivation function.
- * - The index is just a 32-bit integer
+ * - The index is just a unsigned 32-bit integer
  *
  * Derivation is defined as: 
- *  child_seed_material = SHA512(parent_seed_material || index)
+ *  child_seed_material = HMAC-SHA512(parent_seed_material || index)
  *  child_depth = parent_depth + 1
  *  child_number = index
  */
 int bip32_derive(bip32_node_t *out, const bip32_node_t *parent, uint32_t index)
 {
-    // derive seed material
-    unsigned int child_seed_material_len = 0;
+    unsigned int child_seed_material_len = 64;
+    uint8_t index_be[4];
 
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    if (ctx == NULL) {
+    // convert index to big-endian
+    index_be[0] = (uint8_t)(index >> 24);
+    index_be[1] = (uint8_t)(index >> 16);
+    index_be[2] = (uint8_t)(index >> 8);
+    index_be[3] = (uint8_t)index;
+
+    unsigned char *result = HMAC(EVP_sha512(),
+                                 parent->seed_material, 64,
+                                 index_be, sizeof(index_be),
+                                 out->seed_material, &child_seed_material_len);
+    if (result == NULL) {
         return -1;
     }
-    EVP_DigestInit_ex(ctx, EVP_sha512(), NULL);
-    EVP_DigestUpdate(ctx, parent->chain_code, 32);
-    EVP_DigestUpdate(ctx, parent->seed_material, 32);
-    EVP_DigestUpdate(ctx, &index, sizeof(index));
-    EVP_DigestFinal_ex(ctx, out->seed_material, &child_seed_material_len);
-    EVP_MD_CTX_free(ctx);
 
-    printf("Derived seed material; SHA512(parent_seed_material || %d): ", index);
-    for (size_t i = 0; i < child_seed_material_len; i++) {
+    printf("Derived seed material; HMAC-SHA512(parent_seed_material || %u): ", index);
+    for (size_t i = 0; i < 64; i++) {
         printf("%02x", out->seed_material[i]);
     }
     printf("\n");
 
-    // assign index and depth
     out->depth = parent->depth + 1;
     out->child_number = index;
 
-    return child_seed_material_len;
+    return (int)child_seed_material_len;
 }
 
 /**
@@ -132,7 +131,6 @@ int bip44_derive_path(bip32_node_t *out, const bip32_node_t *master, const char 
         current = child_node;
     }
     
-    // by the end we should have derived 5 levels
     *out = current; 
 
     printf("Derived node at path %s:\n", path);
