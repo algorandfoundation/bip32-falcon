@@ -11,6 +11,6 @@ git submodule update --init --recursive
 ## Test
 
 ```bash
+make
 make test
-./test_bip32
 ```
